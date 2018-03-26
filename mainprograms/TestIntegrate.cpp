@@ -8,6 +8,17 @@
 #include "TIntRuleTriangle.h"
 #include "TVec.h"
 #include "tpanic.h"
+#include "TMatrix.h"
+#include "tmalha.h"
+#include "telemento1d.h"
+#include "telemento0d.h"
+#include "telementoQuad.h"
+#include "telementoTriangle.h"
+#include "tmaterial1d.h"
+#include "tmaterial2d.h"
+#include "tmaterialbc.h"
+#include "tanalysis.h"
+#include "TIntRule1d.h"
 
 #ifdef WIN32
 #define __PRETTY_FUNCTION__ __FUNCTION__
@@ -25,12 +36,87 @@ void testTriangle();
 //twodim Test
 double Poli2D(TVecNum<double> &coord, int orderx, int ordery);
 double Poli2DQuad(TVecNum<double> &coord, int orderx, int ordery);
+void UXi(TVecNum<double> &coord, TVecNum<double> &uXi, TVecNum<double> &gradu);
+TVecNum<double> X(TVecNum<double> &coordXi);
+void Jacobian(TVecNum<double> &Coord, TMatrix &jacobian, double &detjac);
 
 int main ()
 {
-  test1D();
-  testTriangle();
-  testQuad();
+//  test1D();
+//  testTriangle();
+//  testQuad();
+    
+    int order1 =19;
+    TIntRuleQuad TestInt1(order1);
+    
+    //TestInt.Print(std::cout);
+    
+
+    double weight;
+    TVecNum<double> CoordXi(2), uXi(1), gradu(2);
+    
+    double val1 = 0.;
+    double val2x = 0.,val2y = 0.;
+    int NPoint = TestInt1.NPoints();
+    for (int i=0; i<NPoint; i++) {
+        TestInt1.Point(i, CoordXi, weight);
+        UXi(CoordXi,uXi,gradu);
+        val1 = val1 + weight*uXi[0];
+        val2x = val2x +weight*gradu[0];
+        val2y = val2y +weight*gradu[1];
+    }
+    
+    cout<<"Resultado Integral u(xi,eta):  "<< val1 << endl;
+    cout<<"Resultado Integral Gradu(xi,eta):  "<< val2x << "," << val2y << endl;
+    
+    
+    TMalha mesh;
+    int Porder = 2;
+
+    CoordXi.Zero();
+    TMatrix jacobian, jacinv;
+    double detjac;
+
+    weight=0.;
+    CoordXi.Zero(),uXi.Zero(),gradu.Zero();
+    TIntRuleQuad TestInt2(order1);
+    
+    TVecNum<double> coord;
+    double val3 = 0.,valA=0;
+    double val4x = 0.,val4y = 0.;
+    int NPoint2 = TestInt2.NPoints();
+    TVec<int> nodes(NPoint2);
+    
+    TVec<TElemento *> &elvec = mesh.getElementVec();
+    elvec.Resize(1);
+    
+    for (int i=0; i<NPoint2; i++) {
+        nodes[i]=i;
+    }
+    elvec[0] = new TElementoQuad(1,1,nodes);
+    
+    for (int i=0; i<NPoint2; i++) {
+        TestInt2.Point(i, CoordXi, weight);
+        UXi(CoordXi,uXi,gradu);
+        //coord = X(CoordXi);
+        Jacobian(CoordXi, jacobian, detjac);
+        valA = valA + detjac*weight;
+        val3 = val3 + detjac*weight*uXi[0];
+        val4x = val4x + detjac*weight*gradu[0];
+        val4y = val4y + detjac*weight*gradu[1];
+        
+    }
+    
+    //
+    
+    
+     cout<<"Resultado Área quad. mapeado:  "<< valA << endl;
+     cout<<"Resultado Integral u(x,y):  "<< val3 << endl;
+     cout<<"Resultado Integral Gradu(x,y):  "<< val4x << "," << val4y << endl;
+    
+
+
+    
   return 0;
   
 }
@@ -44,6 +130,134 @@ double Poli2DQuad(TVecNum<double> &coord, int orderx, int ordery)
 {
   return pow(coord[0],orderx) * pow(coord[1],ordery);
 }
+
+void UXi(TVecNum<double> &coord, TVecNum<double> &uxi, TVecNum<double> &gradu)
+{
+    uxi[0] = 3.+cos(3.*coord[1])*sin(4.*coord[0]);
+    gradu[0] = 4.*cos(3.*coord[1])* cos(4.*coord[0]);
+    gradu[1] = -3.*sin(3.*coord[1])* sin(4.*coord[0]);
+}
+
+TVecNum<double> X(TVecNum<double> &CoordXi)
+{
+    
+    TVecNum<double> coord(2);
+
+    coord[0] = 5.*CoordXi[0]+0.5*sin(3.*CoordXi[1]);
+    coord[1] = 4.*CoordXi[1]+0.3*cos(10.*CoordXi[0]);
+
+    return coord;
+    
+}
+
+void Jacobian(TVecNum<double> &Coord, TMatrix &jacobian, double &detjac)
+{
+
+    jacobian.Resize(2, 2);
+    jacobian.Zero();
+    
+    jacobian(0,0)=5.;
+    jacobian(0,1)=1.5*cos(3.*Coord[1]);
+    jacobian(1,0)=-3.*sin(10.*Coord[0]);
+    jacobian(1,1)=4.;
+    
+    detjac = fabs(jacobian(0, 0)*jacobian(1, 1) - jacobian(1, 0)*jacobian(0, 1));
+    
+}
+
+
+/*
+ * Calcula os valores das funcoes de forma e suas derivadas
+ * @point ponto onde calcular as funcoes de forma
+ * @phi valores das funcoes de forma
+ * @dphi valores das derivadas das funcoes de forma
+ */
+
+void Shape(TVec<double> &point, TVec<double> &phi, TMatrix &dphi, int order)
+{
+    
+    if (order==1) {
+        
+        int Indices[2][2]={{0,3},{1,2}};
+        
+        TVec<double> coxi(1);
+        coxi[0]=point[0];
+        
+        TVec<double> coeta(1);
+        coeta[0]=point[1];
+        
+        TVec<double> phixi(2), phieta(2);
+        TMatrix dphixi(1,2),dphieta(1,2);
+        
+        phi.Resize(4);
+        dphi.Resize(2, 4);
+        
+        
+        for (int xi=0; xi<order+1; xi++) {
+            
+            TElemento::Shape1d(order, coxi, phixi, dphixi);
+            
+            for (int eta=0; eta<order+1; eta++) {
+                
+                TElemento::Shape1d(order, coeta, phieta, dphieta);
+                
+                phi[Indices[xi][eta]]=phixi[xi]*phieta[eta];
+                
+                dphi(0,Indices[xi][eta])=dphixi(0,xi)*phieta[eta];
+                dphi(1,Indices[xi][eta])=dphieta(0,eta)*phixi[xi];
+                
+            }
+            
+        }
+        
+    }
+    
+    if (order==2) {
+        
+        int Indices[3][3]={{0,7,3},{4,8,6},{1,5,2}};
+        
+        TVec<double> coxi(1);
+        coxi[0]=point[0];
+        
+        TVec<double> coeta(1);
+        coeta[0]=point[1];
+        
+        TVec<double> phixi(2), phieta(1);
+        TMatrix dphixi(1,3),dphieta(1,3);
+        
+        phi.Resize(9);
+        dphi.Resize(2, 9);
+        
+        
+        for (int xi=0; xi<order+1; xi++) {
+            
+            TElemento::Shape1d(order, coxi, phixi, dphixi);
+            
+            for (int eta=0; eta<order+1; eta++) {
+                
+                TElemento::Shape1d(order, coeta, phieta, dphieta);
+                
+                phi[Indices[xi][eta]]=phixi[xi]*phieta[eta];
+                
+                dphi(0,Indices[xi][eta])=dphixi(0,xi)*phieta[eta];
+                dphi(1,Indices[xi][eta])=dphieta(0,eta)*phixi[xi];
+                
+            }
+            
+        }
+        
+    }
+    
+}
+
+
+
+
+
+
+
+
+
 
 
 double Poli1D(double coord, int polorder)
