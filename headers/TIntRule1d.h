@@ -9,6 +9,7 @@
 #ifndef __FemSC__TIntRule1d__
 #define __FemSC__TIntRule1d__
 
+#include <cmath>
 #include <stdio.h>
 #include "TVecNum.h"
 
@@ -32,6 +33,9 @@ public:
     int NPoints();
     
     void Point(int p, TVec<double> &co, double &weight);
+    
+    void gauleg(const double x1, const double x2, TVecNum<double> &x, TVecNum<double> &w);
+    
 };
 
 

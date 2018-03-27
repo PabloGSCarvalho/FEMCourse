@@ -79,3 +79,14 @@ void TIntRuleQuad::Point(int p, TVec<double> &co, double &weight)
     
     
 }
+
+void TIntRuleQuad::gaulegQuad(const double x1, const double x2, TVecNum<double> &x, TVecNum<double> &w)
+{
+    
+    
+    
+}
+
+
+
+

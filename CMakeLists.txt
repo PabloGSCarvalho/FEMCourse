@@ -8,6 +8,7 @@ add_subdirectory(headers)
 add_subdirectory("src vazio")
 add_subdirectory(tinyxml)
 
+
 #Specify where the headers files must be found
 include_directories(
 	"${PROJECT_SOURCE_DIR}/headers"
@@ -34,3 +35,10 @@ if(WIN32)
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /W0")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /W0")
 endif()
+
+
+option(USING_FAD "Whether the FAD package will be linked with the library" OFF)
+
+if(USING_FAD)
+	add_subdirectory("Fad")
+endif(USING_FAD)

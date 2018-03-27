@@ -35,6 +35,8 @@ public:
     
     void Point(int p, TVec <double> &co, double &weight);
     
+    void gaulegQuad(const double x1, const double x2, TVecNum<double> &x, TVecNum<double> &w);
+    
     void Print(std::ostream &out);
 };
 
