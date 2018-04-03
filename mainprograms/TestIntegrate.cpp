@@ -40,6 +40,7 @@ double Poli2DQuad(TVecNum<double> &coord, int orderx, int ordery);
 void UXi(TVecNum<double> &coord, TVecNum<double> &uXi, TVecNum<double> &gradu);
 TVecNum<double> X(TVecNum<double> &coordXi);
 void Jacobian(TVecNum<double> &Coord, TMatrix &jacobian, double &detjac);
+double InnerVec(TVecNum<double> &S , TVecNum<double> &T);
 
 int main ()
 {
@@ -47,45 +48,60 @@ int main ()
 //  testTriangle();
 //  testQuad();
     
-    int order1 =19;
-    TIntRuleQuad TestInt1(order1);
-    
-    //TestInt.Print(std::cout);
-    
+    cout<<"---------------------------------------------------------------------------------"<< endl;
+    cout<<"----------------- Regra de integração - Tabela de valores :  --------------------"<< endl;
 
     double weight;
     TVecNum<double> CoordXi(2), uXi(1), gradu(2);
     
+    //Teste 1 - Regra de integração - Tabela de valores;
+
+    int order =19;
+    
+    TIntRuleQuad TestInt1(order);
+    
     double val1 = 0.;
-    double val2x = 0.,val2y = 0.;
     int NPoint = TestInt1.NPoints();
     for (int i=0; i<NPoint; i++) {
         TestInt1.Point(i, CoordXi, weight);
         UXi(CoordXi,uXi,gradu);
         val1 = val1 + weight*uXi[0];
-        val2x = val2x +weight*gradu[0];
-        val2y = val2y +weight*gradu[1];
     }
     
-    cout<<"Resultado Integral u(xi,eta):  "<< val1 << endl;
-    cout<<"Resultado Integral Gradu(xi,eta):  "<< val2x << "," << val2y << endl;
+    
+    cout<<"Resultado Integral u(xi,eta):  "<< val1  << "  -> Número de pontos de integração = "<< NPoint << endl;
+
+    //Teste 1 - Regra de integração - Tabela de valores;
+    
+    order =19;
+    
+    TIntRuleQuad TestInt2(order);
+    
+    double val2 = 0.;
+    NPoint = TestInt2.NPoints();
+    for (int i=0; i<NPoint; i++) {
+        TestInt2.Point(i, CoordXi, weight);
+        UXi(CoordXi,uXi,gradu);
+        val2 += weight*InnerVec(gradu, gradu);
+    }
+    
+    val2=sqrt(val2);
+    
+    cout<<"Resultado Integral ||Gradu(xi,eta)||:  "<< val2 << "  -> Número de pontos de integração = "<< NPoint << endl;
     
     
     TMalha mesh;
-    int Porder = 2;
-
     CoordXi.Zero();
     TMatrix jacobian, jacinv;
     double detjac;
 
     weight=0.;
     CoordXi.Zero(),uXi.Zero(),gradu.Zero();
-    TIntRuleQuad TestInt2(order1);
+    TIntRuleQuad TestInt3(order);
     
     TVecNum<double> coord;
-    double val3 = 0.,valA=0;
-    double val4x = 0.,val4y = 0.;
-    int NPoint2 = TestInt2.NPoints();
+    double val3 = 0.,val4 = 0.,valA=0;
+    int NPoint2 = TestInt3.NPoints();
     TVec<int> nodes(NPoint2);
     
     TVec<TElemento *> &elvec = mesh.getElementVec();
@@ -97,26 +113,150 @@ int main ()
     elvec[0] = new TElementoQuad(1,1,nodes);
     
     for (int i=0; i<NPoint2; i++) {
-        TestInt2.Point(i, CoordXi, weight);
+        TestInt3.Point(i, CoordXi, weight);
         UXi(CoordXi,uXi,gradu);
         //coord = X(CoordXi);
         Jacobian(CoordXi, jacobian, detjac);
         valA = valA + detjac*weight;
         val3 = val3 + detjac*weight*uXi[0];
-        val4x = val4x + detjac*weight*gradu[0];
-        val4y = val4y + detjac*weight*gradu[1];
+        val4 += detjac*weight*InnerVec(gradu, gradu);
         
     }
     
-    //
+    val4=sqrt(val4);
+    
+    cout<<"Resultado Área quad. mapeado:  "<< valA << endl;
+    cout<<"Resultado Integral u(x,y):  "<< val3 << endl;
+    cout<<"Resultado Integral ||Gradu(x,y)||:  "<< val4 << endl;
+    
+    cout<<"---------------------------------------------------------------------------------"<< endl;
+    cout<<"---------------- Função Gauleg retirada do Numerical Recipes : ------------------"<< endl;
     
     
-     cout<<"Resultado Área quad. mapeado:  "<< valA << endl;
-     cout<<"Resultado Integral u(x,y):  "<< val3 << endl;
-     cout<<"Resultado Integral Gradu(x,y):  "<< val4x << "," << val4y << endl;
+    //Teste 1 - Função Gauleg retirada do Numerical Recipes;
+    
+    int order1=1;
+    val1=0.;
+    double nPoints = 1;
+    
+    while(fabs(val1-12) >= 1.e-8) {
+        TIntRuleQuad TestIntGauss(order1);
+        TVecNum<double> x(nPoints);
+        TVecNum<double> wvec(nPoints);
+
+        TestIntGauss.gaulegQuad(-1, 1, x, wvec);
+        for (int i=0; i<nPoints*nPoints; i++) {
+            CoordXi[0]=x[i];
+            CoordXi[1]=x[i+nPoints*nPoints];
+            UXi(CoordXi,uXi,gradu);
+            
+            val1 += wvec[i]*uXi[0];
+        }
+        nPoints++;
+    }
+    
+    cout<<"Resultado Integral u(xi,eta):  "<< val1 << "  -> Número de pontos de integração = "<< nPoints*nPoints << endl;
+
+    //Teste 2 - Função Gauleg retirada do Numerical Recipes;
+    val2 = 0.;
+    nPoints = 12;
+    
+    while(fabs(val2-5.03941698) >= 1.e-8) {
+        TIntRuleQuad TestIntGauss2(order1);
+        TVecNum<double> x2(nPoints);
+        TVecNum<double> wvec2(nPoints);
+        
+        TestIntGauss2.gaulegQuad(-1, 1, x2, wvec2);
+        for (int i=0; i<nPoints*nPoints; i++) {
+            CoordXi[0]=x2[i];
+            CoordXi[1]=x2[i+nPoints*nPoints];
+            UXi(CoordXi,uXi,gradu);
+            val2 += wvec2[i]*InnerVec(gradu, gradu);
+        }
+        
+        val2=sqrt(val2);
+        nPoints++;
+    }
+    cout<<"Resultado Integral ||Gradu(xi,eta)||:  "<< val2 << "  -> Número de pontos de integração = "<< nPoints*nPoints << endl;
+    
+    
+    //Teste 3 - Função Gauleg retirada do Numerical Recipes;
+    
+    valA=0.;
+    nPoints=1;
+    while(fabs(valA-80) >= 1.e-8) {
+        TIntRuleQuad TestIntGauss3(order1);
+        
+        TVecNum<double> x3(nPoints);
+        TVecNum<double> wvec3(nPoints);
+
+        TestIntGauss3.gaulegQuad(-1, 1, x3, wvec3);
+        for (int i=0; i<nPoints*nPoints; i++) {
+            CoordXi[0]=x3[i];
+            CoordXi[1]=x3[i+nPoints*nPoints];
+            UXi(CoordXi,uXi,gradu);
+            //coord = X(CoordXi);
+            Jacobian(CoordXi, jacobian, detjac);
+
+            valA += detjac*wvec3[i];
+        }
+        nPoints++;
+    }
+    
+    cout<<"Resultado Área quad. mapeado:  "<< valA << "  -> Número de pontos de integração = "<< nPoints*nPoints << endl;
+    
+    //Teste 4 - Função Gauleg retirada do Numerical Recipes;
+    val3=0.;
+    nPoints = 22;
+    while(fabs(val3-239.49661609) >= 1.e-8) {
+        TIntRuleQuad TestIntGauss4(order1);
+        TVecNum<double> x4(nPoints);
+        TVecNum<double> wvec4(nPoints);
+        
+        TestIntGauss4.gaulegQuad(-1, 1, x4, wvec4);
+        for (int i=0; i<nPoints*nPoints; i++) {
+            CoordXi[0]=x4[i];
+            CoordXi[1]=x4[i+nPoints*nPoints];
+            UXi(CoordXi,uXi,gradu);
+            //coord = X(CoordXi);
+            Jacobian(CoordXi, jacobian, detjac);
+            
+            val3 += detjac*wvec4[i]*uXi[0];
+        }
+        nPoints++;
+    }
+    
+    cout<<"Resultado Integral u(x,y):  "<< val3 << "  -> Número de pontos de integração = "<< nPoints*nPoints << endl;
+    
+    //Teste 5 - Função Gauleg retirada do Numerical Recipes;
     
 
-
+    val4=0.;
+    nPoints = 12;
+    while(fabs(val4-22.53695786) >= 1.e-8) {
+        TIntRuleQuad TestIntGauss5(order1);
+        TVecNum<double> x5(nPoints);
+        TVecNum<double> wvec5(nPoints);
+        
+        TestIntGauss5.gaulegQuad(-1, 1, x5, wvec5);
+        for (int i=0; i<nPoints*nPoints; i++) {
+            CoordXi[0]=x5[i];
+            CoordXi[1]=x5[i+nPoints*nPoints];
+            UXi(CoordXi,uXi,gradu);
+            //coord = X(CoordXi);
+            Jacobian(CoordXi, jacobian, detjac);
+            
+            val4 += detjac*wvec5[i]*InnerVec(gradu, gradu);
+        }
+        val4=sqrt(val4);
+        nPoints++;
+    }
+    
+    cout<<"Resultado Integral ||Gradu(x,y)||:  "<< val4 << "  -> Número de pontos de integração = "<< nPoints*nPoints << endl;
+    cout<<"-----------------------------------"<< endl;
+    
+    
+    
     
   return 0;
   
@@ -138,6 +278,24 @@ void UXi(TVecNum<double> &coord, TVecNum<double> &uxi, TVecNum<double> &gradu)
     gradu[0] = 4.*cos(3.*coord[1])* cos(4.*coord[0]);
     gradu[1] = -3.*sin(3.*coord[1])* sin(4.*coord[0]);
 }
+
+
+double InnerVec(TVecNum<double> &S , TVecNum<double> &T){
+    
+    double Val = 0;
+    if(S.Size()!=T.Size()){
+        DebugStop();
+    }
+    for(int i = 0; i < S.Size(); i++){
+            Val += S[i]*T[i];
+    }
+    return Val;
+    
+}
+
+
+
+
 
 TVecNum<double> X(TVecNum<double> &CoordXi)
 {

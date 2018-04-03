@@ -83,7 +83,26 @@ void TIntRuleQuad::Point(int p, TVec<double> &co, double &weight)
 void TIntRuleQuad::gaulegQuad(const double x1, const double x2, TVecNum<double> &x, TVecNum<double> &w)
 {
     
+    TIntRule1d IntGauss1Dx(fOrder);
+    TIntRule1d IntGauss1Dy(fOrder);
+    double nPoints = x.Size();
+    TVecNum<double> weightx(x.Size()), coX(nPoints);
+    TVecNum<double> weighty(x.Size()), coY(nPoints);
     
+    IntGauss1Dx.gauleg(x1, x2, coX, weightx);
+    IntGauss1Dy.gauleg(x1, x2, coY, weighty);
+    
+    x.Resize(2*nPoints*nPoints);
+    w.Resize(nPoints*nPoints);
+    
+    for (int i = 0; i<nPoints; i++) {
+        
+        for (int j = 0; j<nPoints; j++) {
+            w[j+i*nPoints]=weightx[j]*weighty[i];
+            x[j+i*nPoints]=coX[j];
+            x[j+i*nPoints+nPoints*nPoints]=coY[i];
+        }
+    }
     
 }
 
